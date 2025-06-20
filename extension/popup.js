@@ -62,15 +62,22 @@ function promptForConfirmation(onConfirmed) {
 
 // 4. The original toggle logic, extracted into its own function
 function doToggle() {
-  // Clear any previous alarm and then toggle
   chrome.alarms.clear('reEnableBlocking').then(() => {
     return chrome.runtime.sendMessage({ action: 'toggleBlocking' });
   }).then((response) => {
     if (response && typeof response.isBlocking === 'boolean') {
+      // 🔽 NEW: Hide the challenge UI if it was showing
+      challengeDiv.style.display = 'none';
+      toggleButton.style.display = 'block';
+      challengeInput.value = '';
+      errorMsg.style.display = 'none';
+
+      // 🔽 Re-check countdown state based on new storage
       updateButton(response.isBlocking);
     }
   });
 }
+
 
 // 5. Hook up the toggle button to prompt first
 toggleButton.addEventListener('click', () => {
