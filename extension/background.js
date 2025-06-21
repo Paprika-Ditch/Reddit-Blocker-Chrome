@@ -85,12 +85,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message.type === "reEnableNow") {
-    chrome.alarms.clear(DISABLE_ALARM_NAME).then(() => {
-      updateBlockingState(true);
+if (message.type === "reEnableNow") {
+  chrome.alarms.clear(DISABLE_ALARM_NAME).then(() => {
+    updateBlockingState(true).then(() => {
+      sendResponse({ success: true }); // <-- notify popup after update
     });
-    return true;
-  }
+  });
+  return true; // <-- important to allow async response
+}
 
   if (message.type === "cancelChallenge") {
     currentChallenge = null;

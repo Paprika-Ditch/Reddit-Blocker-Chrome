@@ -30,12 +30,16 @@ toggleButton.addEventListener("click", () => {
         showChallenge(response.challenge);
       });
     } else {
-      chrome.runtime.sendMessage({ type: "reEnableNow" }, () => {
-        toggleButton.disabled = true;
+      chrome.runtime.sendMessage({ type: "reEnableNow" }, (res) => {
+        if (res.success) {
+          if (timerInterval) clearInterval(timerInterval); // stop countdown
+          refreshState(); // now it will correctly reflect new state
+        }
       });
     }
   });
 });
+
 
 function showChallenge(code) {
   toggleButton.style.display = "none";
