@@ -4,6 +4,7 @@ const challengeText = document.getElementById("challengeText");
 const challengeInput = document.getElementById("challengeInput");
 const confirmButton = document.getElementById("confirmButton");
 const errorMsg = document.getElementById("errorMsg");
+const port = chrome.runtime.connect({ name: "popup" });
 
 let timerInterval = null;
 let currentResumeTime = null;
@@ -82,3 +83,6 @@ function updateCountdownButton(resumeTime) {
 }
 
 document.addEventListener("DOMContentLoaded", refreshState);
+
+
+

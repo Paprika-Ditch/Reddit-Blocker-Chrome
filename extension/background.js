@@ -16,6 +16,15 @@ const blockingRules = [
   },
 ];
 
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name === "popup") {
+    port.onDisconnect.addListener(() => {
+      console.log("Popup closed — clearing currentChallenge");
+      currentChallenge = null;
+    });
+  }
+});
+
 async function updateBlockingState(block) {
   isBlocking = block;
   await chrome.storage.local.set({ isBlocking });
@@ -82,6 +91,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
+
+  if (message.type === "cancelChallenge") {
+    currentChallenge = null;
+    return true;
+  }
+
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
