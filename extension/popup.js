@@ -1,117 +1,72 @@
-// popup.js
+const toggleButton = document.getElementById("toggleButton");
+const challengeDiv = document.getElementById("challengeContainer");
+const challengeText = document.getElementById("challengeText");
+const challengeInput = document.getElementById("challengeInput");
+const confirmButton = document.getElementById("confirmButton");
+const errorMsg = document.getElementById("errorMsg");
 
 let timerInterval = null;
+let currentResumeTime = null;
 
-// 1. Grab references to our DOM elements.
-//    document.getElementById lets us find elements by their `id`.
-const toggleButton      = document.getElementById('toggleButton');
-const challengeDiv      = document.getElementById('challengeContainer');
-const challengeText     = document.getElementById('challengeText');
-const challengeInput    = document.getElementById('challengeInput');
-const confirmButton     = document.getElementById('confirmButton');
-const errorMsg          = document.getElementById('errorMsg');
-
-// 2. Utility: generate a random alphanumeric string of given length.
-//    We build it by picking random characters from our `chars` string.
-function generateRandomString(length) {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let result = '';               // an empty string
-  for (let i = 0; i < length; i++) {
-    // Math.random() gives [0,1). Multiply by chars.length, floor it to get an index.
-    const idx = Math.floor(Math.random() * chars.length);
-    result += chars[idx];        // append that character
-  }
-  return result;
-}
-
-// 3. Show the challenge UI and wire up the confirmation logic.
-function promptForConfirmation(onConfirmed) {
-  // Hide the toggle button so they can’t click it again
-  toggleButton.style.display = 'none';
-
-  // Generate and display 10-char challenge
-  const code = generateRandomString(10);
-  challengeText.innerText = code;
-  challengeInput.value = '';       // clear any previous input
-  errorMsg.style.display = 'none'; // hide error message
-  challengeDiv.style.display = 'block';
-
-  // Once they click “Confirm”, check if it matches
-  confirmButton.onclick = () => {
-    if (challengeInput.value === code) {
-      // If correct, invoke the callback
-      onConfirmed();
+function refreshState() {
+  chrome.runtime.sendMessage({ type: "getStatus" }, (res) => {
+    const { isBlocking, resumeTime, challengeActive } = res;
+    currentResumeTime = resumeTime;
+    if (isBlocking) {
+      toggleButton.textContent = "Disable for 5 min";
     } else {
-      // Otherwise show error and optionally regenerate
-      errorMsg.style.display = 'block';
-      // Uncomment to force a new code each try:
-      // promptForConfirmation(onConfirmed);
+      updateCountdownButton(resumeTime);
+      startCountdown(resumeTime);
     }
-  };
-
-  // Also allow pressing Enter in the input to trigger confirmation
-  challengeInput.onkeydown = (e) => {
-    if (e.key === 'Enter') {
-      confirmButton.click();
-    }
-  };
-
-  // Focus the input right away
-  challengeInput.focus();
-}
-
-// 4. The original toggle logic, extracted into its own function
-function doToggle() {
-  chrome.alarms.clear('reEnableBlocking').then(() => {
-    return chrome.runtime.sendMessage({ action: 'toggleBlocking' });
-  }).then((response) => {
-    if (response && typeof response.isBlocking === 'boolean') {
-      // 🔽 NEW: Hide the challenge UI if it was showing
-      challengeDiv.style.display = 'none';
-      toggleButton.style.display = 'block';
-      challengeInput.value = '';
-      errorMsg.style.display = 'none';
-
-      // 🔽 Re-check countdown state based on new storage
-      updateButton(response.isBlocking);
-    }
+    toggleButton.disabled = challengeActive;
   });
 }
 
-
-// 5. Hook up the toggle button to prompt first
-toggleButton.addEventListener('click', () => {
-  // If currently blocking, then they’re clicking “Disable for 5 min”
-  // so we ask them to confirm.
-  chrome.storage.local.get('isBlocking', (data) => {
-    const isBlocking = data.isBlocking !== false;
-    if (isBlocking) {
-      promptForConfirmation(doToggle);
+toggleButton.addEventListener("click", () => {
+  chrome.runtime.sendMessage({ type: "getStatus" }, (res) => {
+    if (res.isBlocking) {
+      chrome.runtime.sendMessage({ type: "requestChallenge" }, (response) => {
+        showChallenge(response.challenge);
+      });
     } else {
-      // If already disabled, clicking is “Don’t re-enable yet”?
-      // You can decide if you want a challenge here too.
-      doToggle();
+      chrome.runtime.sendMessage({ type: "reEnableNow" }, () => {
+        toggleButton.disabled = true;
+      });
     }
   });
 });
 
-// --- The rest of your existing code for countdown, updateButton, etc. ---
+function showChallenge(code) {
+  toggleButton.style.display = "none";
+  challengeDiv.style.display = "block";
+  challengeText.innerText = code;
+  challengeInput.value = '';
+  errorMsg.style.display = 'none';
+  challengeInput.focus();
 
-function checkCountdown(isBlocking, resumeTime) {
-  if (timerInterval) {
-    clearInterval(timerInterval);
-    timerInterval = null;
-  }
-  if (!isBlocking && resumeTime && resumeTime > Date.now()) {
-    updateCountdownButton(resumeTime);
-    timerInterval = setInterval(() => updateCountdownButton(resumeTime), 1000);
-  } else {
-    toggleButton.textContent = isBlocking
-      ? 'Disable for 5 min'
-      : 'Re-enabling in 5 min...';
-    toggleButton.style.display = 'block';
-    challengeDiv.style.display = 'none';
-  }
+  confirmButton.onclick = () => {
+    const answer = challengeInput.value.trim();
+    chrome.runtime.sendMessage({ type: "submitChallenge", answer }, (res) => {
+      if (res.success) {
+        challengeDiv.style.display = "none";
+        toggleButton.style.display = "block";
+        refreshState();
+      } else {
+        errorMsg.style.display = "block";
+      }
+    });
+  };
+
+  challengeInput.onkeydown = (e) => {
+    if (e.key === "Enter") {
+      confirmButton.click();
+    }
+  };
+}
+
+function startCountdown(resumeTime) {
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => updateCountdownButton(resumeTime), 1000);
 }
 
 function updateCountdownButton(resumeTime) {
@@ -119,25 +74,11 @@ function updateCountdownButton(resumeTime) {
   if (remainingMs > 0) {
     const min = Math.floor(remainingMs / 60000);
     const sec = Math.floor((remainingMs % 60000) / 1000);
-    toggleButton.textContent = `Re-enabling in ${min}:${sec < 10 ? '0':''}${sec}...`;
+    toggleButton.textContent = `Re-enabling in ${min}:${sec < 10 ? '0' : ''}${sec}...`;
   } else {
     clearInterval(timerInterval);
-    timerInterval = null;
-    chrome.storage.local.get('isBlocking', (data) => {
-      updateButton(data.isBlocking !== false);
-    });
+    refreshState();
   }
 }
 
-function updateButton(isBlocking) {
-  chrome.storage.local.get('resumeTime', (data) => {
-    checkCountdown(isBlocking, data.resumeTime);
-  });
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  chrome.storage.local.get(['isBlocking', 'resumeTime'], (data) => {
-    const isBlocking = data.isBlocking !== false;
-    checkCountdown(isBlocking, data.resumeTime);
-  });
-});
+document.addEventListener("DOMContentLoaded", refreshState);
