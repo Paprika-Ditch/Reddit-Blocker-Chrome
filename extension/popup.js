@@ -5,9 +5,18 @@ const challengeInput = document.getElementById("challengeInput");
 const confirmButton = document.getElementById("confirmButton");
 const errorMsg = document.getElementById("errorMsg");
 const port = chrome.runtime.connect({ name: "popup" });
+const customDisableButton = document.getElementById("customDisableButton");
 
 let timerInterval = null;
 let currentResumeTime = null;
+
+// Event listener for the customized disable button
+customDisableButton.addEventListener("click", () => {
+  chrome.runtime.sendMessage({ type: "requestCustomChallenge" }, (response) => {
+    showChallenge(response.challenge);
+    // In future: handle custom timeout here
+  });
+});
 
 function refreshState() {
   chrome.runtime.sendMessage({ type: "getStatus" }, (res) => {

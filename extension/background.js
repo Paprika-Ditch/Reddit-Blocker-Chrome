@@ -86,14 +86,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-if (message.type === "reEnableNow") {
-  chrome.alarms.clear(DISABLE_ALARM_NAME).then(() => {
-    updateBlockingState(true).then(() => {
-      sendResponse({ success: true }); // <-- notify popup after update
+  if (message.type === "requestCustomChallenge") {
+  const length = 35; // Longer challenge as per your plan
+  const challenge = generateChallenge(length);
+  currentChallenge = challenge;
+  sendResponse({ challenge });
+  return true;
+  }
+
+  if (message.type === "reEnableNow") {
+    chrome.alarms.clear(DISABLE_ALARM_NAME).then(() => {
+      updateBlockingState(true).then(() => {
+        sendResponse({ success: true }); // <-- notify popup after update
+      });
     });
-  });
-  return true; // <-- important to allow async response
-}
+    return true; // <-- important to allow async response
+  }
 
   if (message.type === "cancelChallenge") {
     currentChallenge = null;
