@@ -118,7 +118,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 function generateChallenge(length) {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const chars = 'ABCDEFGHIJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
   let result = '';
   for (let i = 0; i < length; i++) {
     result += chars[Math.floor(Math.random() * chars.length)];

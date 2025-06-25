@@ -17,18 +17,30 @@ customDisableButton.addEventListener("click", () => {
   });
 });
 
+customDisableButton.addEventListener("click", () => {
+  chrome.runtime.sendMessage({ type: "requestCustomChallenge" }, (response) => {
+    showChallenge(response.challenge, true); // fresh challenge
+  });
+});
 
 function refreshState() {
   chrome.runtime.sendMessage({ type: "getStatus" }, (res) => {
     const { isBlocking, resumeTime, challengeActive } = res;
     currentResumeTime = resumeTime;
+
     if (isBlocking) {
       toggleButton.textContent = "Disable for 5 min";
+      toggleButton.style.display = "block";
+      customDisableButton.style.display = "block"; // 👈 ensure it's visible again
     } else {
       updateCountdownButton(resumeTime);
       startCountdown(resumeTime);
+      toggleButton.style.display = "block";
+      customDisableButton.style.display = "none"; // optional: hide when already disabled
     }
+
     toggleButton.disabled = challengeActive;
+    customDisableButton.disabled = challengeActive || !isBlocking;
   });
 }
 
@@ -52,6 +64,7 @@ toggleButton.addEventListener("click", () => {
 
 function showChallenge(code, isCustom = false) {
   toggleButton.style.display = "none";
+  customDisableButton.style.display = "none";
   challengeDiv.style.display = "block";
   challengeText.innerText = code;
   challengeInput.value = '';
@@ -89,6 +102,7 @@ function showChallenge(code, isCustom = false) {
       if (res.success) {
         challengeDiv.style.display = "none";
         toggleButton.style.display = "block";
+        customDisableButton.style.display = "block"; // ← FIXED LINE
         refreshState();
       } else {
         errorMsg.textContent = "Incorrect — try again.";
@@ -96,6 +110,7 @@ function showChallenge(code, isCustom = false) {
       }
     });
   };
+
 
   challengeInput.onkeydown = (e) => {
     if (e.key === "Enter") {
