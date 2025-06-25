@@ -17,12 +17,6 @@ customDisableButton.addEventListener("click", () => {
   });
 });
 
-customDisableButton.addEventListener("click", () => {
-  chrome.runtime.sendMessage({ type: "requestCustomChallenge" }, (response) => {
-    showChallenge(response.challenge, true); // fresh challenge
-  });
-});
-
 function refreshState() {
   chrome.runtime.sendMessage({ type: "getStatus" }, (res) => {
     const { isBlocking, resumeTime, challengeActive } = res;
