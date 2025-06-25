@@ -25,7 +25,7 @@ chrome.runtime.onConnect.addListener((port) => {
   }
 });
 
-async function updateBlockingState(block) {
+async function updateBlockingState(block, durationMinutes = 5) {
   isBlocking = block;
   await chrome.storage.local.set({ isBlocking });
 
@@ -39,11 +39,10 @@ async function updateBlockingState(block) {
     await chrome.declarativeNetRequest.updateDynamicRules({
       removeRuleIds: [REDDIT_RULE_ID]
     });
-    const resumeTime = Date.now() + 5 * 60 * 1000;
+    const resumeTime = Date.now() + durationMinutes * 60 * 1000;
     await chrome.storage.local.set({ resumeTime });
-    chrome.alarms.create(DISABLE_ALARM_NAME, { delayInMinutes: 5 });
+    chrome.alarms.create(DISABLE_ALARM_NAME, { delayInMinutes: durationMinutes });
   }
-
 }
 
 async function init() {
@@ -74,17 +73,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message.type === "submitChallenge") {
-    if (message.answer === currentChallenge) {
-      currentChallenge = null;
-      updateBlockingState(false).then(() => {
-        sendResponse({ success: true });
-      });
-    } else {
-      sendResponse({ success: false });
-    }
-    return true;
+if (message.type === "submitChallenge") {
+  if (message.answer === currentChallenge) {
+    currentChallenge = null;
+
+    const customMinutes = message.minutes || 5; // default to 5 if not specified
+    updateBlockingState(false, customMinutes).then(() => {
+      sendResponse({ success: true });
+    });
+  } else {
+    sendResponse({ success: false });
   }
+  return true;
+}
 
   if (message.type === "requestCustomChallenge") {
   const length = 35; // Longer challenge as per your plan

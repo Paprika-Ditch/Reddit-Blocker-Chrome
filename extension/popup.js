@@ -13,10 +13,10 @@ let currentResumeTime = null;
 // Event listener for the customized disable button
 customDisableButton.addEventListener("click", () => {
   chrome.runtime.sendMessage({ type: "requestCustomChallenge" }, (response) => {
-    showChallenge(response.challenge);
-    // In future: handle custom timeout here
+    showChallenge(response.challenge, true); // true = isCustom
   });
 });
+
 
 function refreshState() {
   chrome.runtime.sendMessage({ type: "getStatus" }, (res) => {
@@ -50,7 +50,7 @@ toggleButton.addEventListener("click", () => {
 });
 
 
-function showChallenge(code) {
+function showChallenge(code, isCustom = false) {
   toggleButton.style.display = "none";
   challengeDiv.style.display = "block";
   challengeText.innerText = code;
@@ -58,7 +58,14 @@ function showChallenge(code) {
   errorMsg.style.display = 'none';
   challengeInput.focus();
 
-    // Prevents copy and paste
+  const customMinutesInput = document.getElementById("customMinutesInput");
+  if (isCustom) {
+    customMinutesInput.style.display = "block";
+  } else {
+    customMinutesInput.style.display = "none";
+  }
+
+  // Prevent copy/paste
   challengeInput.addEventListener('copy', (e) => e.preventDefault());
   challengeInput.addEventListener('cut', (e) => e.preventDefault());
   challengeInput.addEventListener('paste', (e) => e.preventDefault());
@@ -70,12 +77,21 @@ function showChallenge(code) {
 
   confirmButton.onclick = () => {
     const answer = challengeInput.value.trim();
-    chrome.runtime.sendMessage({ type: "submitChallenge", answer }, (res) => {
+    const minutes = isCustom ? parseInt(customMinutesInput.value) : null;
+
+    if (isCustom && (isNaN(minutes) || minutes <= 0 || minutes > 60)) {
+      errorMsg.textContent = "Enter a valid time (1–60 mins)";
+      errorMsg.style.display = "block";
+      return;
+    }
+
+    chrome.runtime.sendMessage({ type: "submitChallenge", answer, minutes }, (res) => {
       if (res.success) {
         challengeDiv.style.display = "none";
         toggleButton.style.display = "block";
         refreshState();
       } else {
+        errorMsg.textContent = "Incorrect — try again.";
         errorMsg.style.display = "block";
       }
     });
